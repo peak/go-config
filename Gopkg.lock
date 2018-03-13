@@ -8,6 +8,12 @@
   version = "v0.3.0"
 
 [[projects]]
+  name = "github.com/fatih/structs"
+  packages = ["."]
+  revision = "a720dfa8df582c51dee1b36feabb906bde1588bd"
+  version = "v1.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/rjeczalik/notify"
   packages = ["."]
@@ -22,6 +28,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8dae42157a6c5bf1a2c81841632f85889a85395e5f9a8b898caafd431d11fa3b"
+  inputs-digest = "eefb665c3b5380dc8bfcd38ef8ddb5155cb4721aa397794646df537966d0d09c"
   solver-name = "gps-cdcl"
   solver-version = 1

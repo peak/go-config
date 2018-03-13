@@ -21,11 +21,11 @@ func (c *Config) listenNotify(ch chan notify.EventInfo) {
 	defer c.wg.Done()
 	for {
 		select {
-			case <-c.ctx.Done():
-				notify.Stop(ch)
-				return
-			case ei := <-ch:
-				c.handleNotify(ei)
+		case <-c.ctx.Done():
+			notify.Stop(ch)
+			return
+		case ei := <-ch:
+			c.handleNotify(ei)
 		}
 
 	}
@@ -34,8 +34,8 @@ func (c *Config) listenNotify(ch chan notify.EventInfo) {
 func (c *Config) handleNotify(ei notify.EventInfo) {
 	// Something happened...
 	select {
-		case c.updateCh<-struct{}{}:
-		case <-c.ctx.Done():
-			return
+	case c.updateCh <- struct{}{}:
+	case <-c.ctx.Done():
+		return
 	}
 }
