@@ -1,3 +1,4 @@
+// Package config offers a rich configuration file handler.
 package config
 
 import (
@@ -12,6 +13,7 @@ import (
 	"github.com/fatih/structs"
 )
 
+// Config keeps internal state.
 type Config struct {
 	ctx  context.Context
 	path string
@@ -20,14 +22,16 @@ type Config struct {
 	updateCh chan struct{}
 }
 
-func New(ctx context.Context, path string) *Config {
+// New creates a new config reader.
+func New(ctx context.Context, pathToFile string) *Config {
 	return &Config{
 		ctx:      ctx,
-		path:     path,
+		path:     pathToFile,
 		updateCh: make(chan struct{}),
 	}
 }
 
+// Load loads the previously given config file into dst. It also handles "flag" binding.
 func (c *Config) Load(dst interface{}) error {
 	_, err := toml.DecodeFile(c.path, dst)
 
@@ -38,15 +42,18 @@ func (c *Config) Load(dst interface{}) error {
 	return c.bindFlags(dst)
 }
 
+// Watch starts watching the previously given config file for changes, and returns a channel to get notified on.
 func (c *Config) Watch() (<-chan struct{}, error) {
 	return c.updateCh, c.startNotify()
 }
 
+// WaitShutdown waits for the watcher goroutine to complete. It should be called after the context given to New is cancelled.
 func (c *Config) WaitShutdown() {
 	c.wg.Wait()
 	close(c.updateCh)
 }
 
+// bindFlags will bind CLI flags to their respective elements in dst, defined by the struct-tag "flag".
 func (c *Config) bindFlags(dst interface{}) error {
 	// Iterate all fields
 	fields := structs.Fields(dst)

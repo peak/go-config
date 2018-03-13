@@ -1,5 +1,7 @@
 # go-config
 
+Offers a rich configuration file handler.
+
 - Read configuration files with ease
 - Get notified on changes
 - Bind CLI flags

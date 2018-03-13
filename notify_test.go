@@ -46,6 +46,7 @@ func TestNotify(t *testing.T) {
 	time.Sleep(500 * time.Millisecond) // Wait for the event queue to clear out
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
+	defer cancelFunc()
 	c := New(ctx, tempFile)
 
 	err = c.Load(&dst)
