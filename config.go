@@ -96,7 +96,7 @@ func (c *Config) bindFlags(dst interface{}) error {
 				dstElem.SetFloat(p)
 			}
 		default:
-			return fmt.Errorf("Unhandled type %v for elem %v", dstElem.Kind().String(), field.Name)
+			return fmt.Errorf("Unhandled type %v for elem %v", dstElem.Kind().String(), field.Name())
 		}
 	}
 
