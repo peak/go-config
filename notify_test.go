@@ -45,7 +45,7 @@ func TestNotify(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond) // Wait for the event queue to clear out
 
-	ctx, cancelFunc := context.WithCancel(context.Background())
+	ctx, cancelFunc := context.WithTimeout(context.Background(), 3000 * time.Millisecond)
 	defer cancelFunc()
 
 	err = Load(tempFile, &dst)
@@ -73,12 +73,19 @@ func TestNotify(t *testing.T) {
 		time.Sleep(1500 * time.Millisecond)
 		t.Logf("Updating file %v", tempFile)
 		if err := ioutil.WriteFile(tempFile, b2, 0666); err != nil {
-			t.Fatal(err)
+			t.Log(err)
+			cancelFunc()
 		}
 	}()
 
 	t.Logf("Waiting for notification...")
-	<-ch
+
+	select {
+		case <-ctx.Done():
+			t.Fatal("Premature cancellation")
+		case <-ch:
+	}
+
 	t.Logf("Got notification...")
 	err = Load(tempFile, &dst)
 	if err != nil {
