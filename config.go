@@ -71,6 +71,9 @@ func bindFlags(dst interface{}) error {
 			} else {
 				dstElem.SetFloat(p)
 			}
+		case "string":
+			dstElem.SetString(fVal)
+
 		default:
 			return fmt.Errorf("Unhandled type %v for elem %v", dstElem.Kind().String(), field.Name())
 		}
