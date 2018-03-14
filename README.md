@@ -21,7 +21,7 @@ Call the `Load()` method to load a config.
     flag.Parse()
 
     var cfg MyConfig
-    err := c.Load("config.toml", &cfg)
+    err := Load("config.toml", &cfg)
 
     fmt.Printf("Loaded config: %#v\n", cfg)
     // Port info is in cfg.Port, parsed from `-port` param
