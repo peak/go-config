@@ -1,41 +1,41 @@
 package config
 
 import (
+	"context"
+
 	"github.com/rjeczalik/notify"
 )
 
-func (c *Config) startNotify() error {
-	ch := make(chan notify.EventInfo, 1)
-
-	if err := notify.Watch(c.path, ch, notify.Create, notify.Write); err != nil {
-		return err
+// Watch starts watching the given file for changes, and returns a channel to get notified on.
+func Watch(ctx context.Context, filepath string) (<-chan struct{}, error) {
+	readch := make(chan notify.EventInfo, 100)
+	if err := notify.Watch(filepath, readch, notify.Create, notify.Write); err != nil {
+		return nil, err
 	}
 
-	c.wg.Add(1)
-	go c.listenNotify(ch)
+	writech := make(chan struct{})
 
-	return nil
-}
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				notify.Stop(readch)
+				return
+			case <-readch:
+				handleNotify(ctx, writech)
+			}
 
-func (c *Config) listenNotify(ch chan notify.EventInfo) {
-	defer c.wg.Done()
-	for {
-		select {
-		case <-c.ctx.Done():
-			notify.Stop(ch)
-			return
-		case ei := <-ch:
-			c.handleNotify(ei)
 		}
+	}()
 
-	}
+	return writech, nil
 }
 
-func (c *Config) handleNotify(ei notify.EventInfo) {
+func handleNotify(ctx context.Context, ch chan<- struct{}) {
 	// Something happened...
 	select {
-	case c.updateCh <- struct{}{}:
-	case <-c.ctx.Done():
+	case ch <- struct{}{}:
+	case <-ctx.Done():
 		return
 	}
 }

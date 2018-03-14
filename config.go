@@ -2,59 +2,28 @@
 package config
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"reflect"
 	"strconv"
-	"sync"
 
 	"github.com/BurntSushi/toml"
 	"github.com/fatih/structs"
 )
 
-// Config keeps internal state.
-type Config struct {
-	ctx  context.Context
-	path string
-	wg   sync.WaitGroup
-
-	updateCh chan struct{}
-}
-
-// New creates a new config reader.
-func New(ctx context.Context, pathToFile string) *Config {
-	return &Config{
-		ctx:      ctx,
-		path:     pathToFile,
-		updateCh: make(chan struct{}),
-	}
-}
-
-// Load loads the previously given config file into dst. It also handles "flag" binding.
-func (c *Config) Load(dst interface{}) error {
-	_, err := toml.DecodeFile(c.path, dst)
+// Load loads filepath into dst. It also handles "flag" binding.
+func Load(filepath string, dst interface{}) error {
+	_, err := toml.DecodeFile(filepath, dst)
 
 	if err != nil {
 		return err
 	}
 
-	return c.bindFlags(dst)
-}
-
-// Watch starts watching the previously given config file for changes, and returns a channel to get notified on.
-func (c *Config) Watch() (<-chan struct{}, error) {
-	return c.updateCh, c.startNotify()
-}
-
-// WaitShutdown waits for the watcher goroutine to complete. It should be called after the context given to New is cancelled.
-func (c *Config) WaitShutdown() {
-	c.wg.Wait()
-	close(c.updateCh)
+	return bindFlags(dst)
 }
 
 // bindFlags will bind CLI flags to their respective elements in dst, defined by the struct-tag "flag".
-func (c *Config) bindFlags(dst interface{}) error {
+func bindFlags(dst interface{}) error {
 	// Iterate all fields
 	fields := structs.Fields(dst)
 	for _, field := range fields {

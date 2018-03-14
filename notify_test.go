@@ -47,9 +47,8 @@ func TestNotify(t *testing.T) {
 
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	defer cancelFunc()
-	c := New(ctx, tempFile)
 
-	err = c.Load(&dst)
+	err = Load(tempFile, &dst)
 	if err != nil {
 		t.Errorf("Got unexpected error %v", err)
 		return
@@ -59,7 +58,7 @@ func TestNotify(t *testing.T) {
 		t.Errorf("got %+v, want %+v", dst, expected1)
 	}
 
-	ch, err := c.Watch()
+	ch, err := Watch(ctx, tempFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +80,7 @@ func TestNotify(t *testing.T) {
 	t.Logf("Waiting for notification...")
 	<-ch
 	t.Logf("Got notification...")
-	err = c.Load(&dst)
+	err = Load(tempFile, &dst)
 	if err != nil {
 		t.Errorf("Got unexpected error %v", err)
 		return
@@ -89,7 +88,4 @@ func TestNotify(t *testing.T) {
 	if !reflect.DeepEqual(dst, expected2) {
 		t.Errorf("got %+v, want %+v", dst, expected2)
 	}
-
-	cancelFunc()
-	c.WaitShutdown()
 }

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"context"
 	"flag"
 	"reflect"
 	"testing"
@@ -19,9 +18,7 @@ func TestSimple(t *testing.T) {
 		dst      configType
 	)
 
-	c := New(context.Background(), inputFile)
-
-	err := c.Load(&dst)
+	err := Load(inputFile, &dst)
 	if err != nil {
 		t.Errorf("Got unexpected error %v", err)
 		return
@@ -46,12 +43,10 @@ func TestWithFlag(t *testing.T) {
 		dst      configType
 	)
 
-	c := New(context.Background(), inputFile)
-
 	flag.Int("testport", whichPort, "Test flag binding in config")
 	flag.Parse()
 
-	err := c.Load(&dst)
+	err := Load(inputFile, &dst)
 	if err != nil {
 		t.Errorf("Got unexpected error %v", err)
 		return

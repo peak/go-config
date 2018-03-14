@@ -3,12 +3,12 @@
 Offers a rich configuration file handler.
 
 - Read configuration files with ease
-- Get notified on changes
 - Bind CLI flags
+- Watch file (or files) and get notified if they change
 
 ## Basic Example
 
-Initialize using `config.New()`, and call the `Load()` method afterwards.
+Call the `Load()` method to load a config.
 
 ```go
     type MyConfig struct {
@@ -20,10 +20,8 @@ Initialize using `config.New()`, and call the `Load()` method afterwards.
     flag.Int("port", 8080, "Port to listen on") // <- notice no variable
     flag.Parse()
 
-    c := config.New(context.Background(), "config.toml")
-
     var cfg MyConfig
-    err := c.Load(&cfg)
+    err := c.Load("config.toml", &cfg)
 
     fmt.Printf("Loaded config: %#v\n", cfg)
     // Port info is in cfg.Port, parsed from `-port` param
@@ -31,17 +29,17 @@ Initialize using `config.New()`, and call the `Load()` method afterwards.
 
 ## File Watching
 
-Call `Watch()` method, get a notification channel... When notified, reload the config.
+Call `Watch()` method, get a notification channel and listen...
 
 ```go
-    ch, err := c.Watch()
+    ch, err := c.Watch(context.Background(), "config.toml")
 
     for {
         select {
         case <-ch:
             fmt.Println("Changed, reloading...")
             var cfg MyConfig
-            err := c.Load(&cfg)
+            err := Load("config.toml", &cfg)
             fmt.Printf("Loaded: %v %#v\n", err, cfg)
             // Handle cfg...
         }

@@ -31,10 +31,8 @@ func main() {
 	flag.Int("port", 8080, "Port to listen on")
 	flag.Parse()
 
-	c := config.New(ctx, *filename)
-
 	var cfg cfgType
-	err := c.Load(&cfg)
+	err := config.Load(*filename, &cfg)
 
 	if err != nil {
 		panic(err)
@@ -44,16 +42,14 @@ func main() {
 
 	fmt.Printf("Would listen on port %v\n", cfg.Port)
 
-	go watch(ctx, c)
+	go watch(ctx, *filename)
 
 	<-ctx.Done()
-	fmt.Println("ctx is done")
-	c.WaitShutdown()
 	fmt.Println("Exiting")
 }
 
-func watch(ctx context.Context, c *config.Config) {
-	ch, err := c.Watch()
+func watch(ctx context.Context, filename string) {
+	ch, err := config.Watch(ctx, filename)
 	if err != nil {
 		panic(err)
 	}
@@ -63,7 +59,7 @@ func watch(ctx context.Context, c *config.Config) {
 		case <-ch:
 			fmt.Println("Changed, reloading...")
 			var cfg cfgType
-			err := c.Load(&cfg)
+			err := config.Load(filename, &cfg)
 			fmt.Printf("Loaded: %v %#v\n", err, cfg)
 		case <-ctx.Done():
 			return
