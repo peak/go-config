@@ -21,7 +21,7 @@ Call the `Load()` method to load a config.
     flag.Parse()
 
     var cfg MyConfig
-    err := Load("config.toml", &cfg)
+    err := config.Load("config.toml", &cfg)
 
     fmt.Printf("Loaded config: %#v\n", cfg)
     // Port info is in cfg.Port, parsed from `-port` param
@@ -32,14 +32,14 @@ Call the `Load()` method to load a config.
 Call `Watch()` method, get a notification channel and listen...
 
 ```go
-    ch, err := c.Watch(context.Background(), "config.toml")
+    ch, err := config.Watch(context.Background(), "config.toml")
 
     for {
         select {
         case <-ch:
             fmt.Println("Changed, reloading...")
             var cfg MyConfig
-            err := Load("config.toml", &cfg)
+            err := config.Load("config.toml", &cfg)
             fmt.Printf("Loaded: %v %#v\n", err, cfg)
             // Handle cfg...
         }
