@@ -2,18 +2,26 @@ package config
 
 import (
 	"context"
+	"path/filepath"
 
 	"github.com/fsnotify/fsnotify"
 )
 
 // Watch starts watching the given file for changes, and returns a channel to get notified on.
 // Errors are also passed through this channel: Receiving a nil from the channel indicates the file is updated.
-func Watch(ctx context.Context, filepath string) (<-chan error, error) {
+func Watch(ctx context.Context, pathtofile string) (<-chan error, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
-	if err = watcher.Add(filepath); err != nil {
+
+	absfile, err := filepath.Abs(pathtofile)
+	if err != nil {
+		return nil, err
+	}
+	basedir := filepath.Dir(absfile)
+
+	if err = watcher.Add(basedir); err != nil {
 		return nil, err
 	}
 
@@ -30,15 +38,10 @@ func Watch(ctx context.Context, filepath string) (<-chan error, error) {
 				handleNotify(ctx, writech, err)
 
 			case e := <-watcher.Events:
-				if e.Op&fsnotify.Remove > 0 {
-					err = watcher.Add(filepath)
-					if err != nil {
-						handleNotify(ctx, writech, err)
-					}
-				}
-
 				if e.Op&(fsnotify.Create|fsnotify.Write) > 0 {
-					handleNotify(ctx, writech, nil)
+					if e.Name == absfile {
+						handleNotify(ctx, writech, nil)
+					}
 				}
 			}
 
