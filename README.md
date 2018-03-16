@@ -36,7 +36,12 @@ Call `Watch()` method, get a notification channel and listen...
 
     for {
         select {
-        case <-ch:
+        case e := <-ch:
+        	if e != nil {
+        		fmt.Printf("Error occured watching file: %v", e)
+        		continue
+        	}
+
             fmt.Println("Changed, reloading...")
             var cfg MyConfig
             err := config.Load("config.toml", &cfg)

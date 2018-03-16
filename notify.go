@@ -3,26 +3,43 @@ package config
 import (
 	"context"
 
-	"github.com/rjeczalik/notify"
+	"github.com/fsnotify/fsnotify"
 )
 
 // Watch starts watching the given file for changes, and returns a channel to get notified on.
-func Watch(ctx context.Context, filepath string) (<-chan struct{}, error) {
-	readch := make(chan notify.EventInfo, 100)
-	if err := notify.Watch(filepath, readch, notify.Create, notify.Write); err != nil {
+// Errors are also passed through this channel: Receiving a nil from the channel indicates the file is updated.
+func Watch(ctx context.Context, filepath string) (<-chan error, error) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, err
+	}
+	if err = watcher.Add(filepath); err != nil {
 		return nil, err
 	}
 
-	writech := make(chan struct{})
+	writech := make(chan error, 100)
 
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				notify.Stop(readch)
+				watcher.Close()
 				return
-			case <-readch:
-				handleNotify(ctx, writech)
+
+			case err := <-watcher.Errors:
+				handleNotify(ctx, writech, err)
+
+			case e := <-watcher.Events:
+				if e.Op&fsnotify.Remove > 0 {
+					err = watcher.Add(filepath)
+					if err != nil {
+						handleNotify(ctx, writech, err)
+					}
+				}
+
+				if e.Op&(fsnotify.Create|fsnotify.Write) > 0 {
+					handleNotify(ctx, writech, nil)
+				}
 			}
 
 		}
@@ -31,10 +48,10 @@ func Watch(ctx context.Context, filepath string) (<-chan struct{}, error) {
 	return writech, nil
 }
 
-func handleNotify(ctx context.Context, ch chan<- struct{}) {
+func handleNotify(ctx context.Context, ch chan<- error, val error) {
 	// Something happened...
 	select {
-	case ch <- struct{}{}:
+	case ch <- val:
 	case <-ctx.Done():
 		return
 	}

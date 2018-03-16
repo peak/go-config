@@ -14,10 +14,10 @@
   version = "v1.0"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/rjeczalik/notify"
+  name = "github.com/fsnotify/fsnotify"
   packages = ["."]
-  revision = "d152f3ce359a5464dc41e84a8919fc67e55bbbf0"
+  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
+  version = "v1.4.7"
 
 [[projects]]
   branch = "master"
@@ -28,6 +28,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "eefb665c3b5380dc8bfcd38ef8ddb5155cb4721aa397794646df537966d0d09c"
+  inputs-digest = "6584d8f2e52a524de507cbeb97b0ecf669ae532b29f26fe544828f4b0ad81ffc"
   solver-name = "gps-cdcl"
   solver-version = 1

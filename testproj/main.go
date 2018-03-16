@@ -56,7 +56,12 @@ func watch(ctx context.Context, filename string) {
 
 	for {
 		select {
-		case <-ch:
+		case e := <-ch:
+			if e != nil {
+				fmt.Printf("Error occured watching file: %v", e)
+				continue
+			}
+
 			fmt.Println("Changed, reloading...")
 			var cfg cfgType
 			err := config.Load(filename, &cfg)
