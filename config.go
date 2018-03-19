@@ -27,9 +27,20 @@ func bindFlags(dst interface{}) error {
 	// Iterate all fields
 	fields := structs.Fields(dst)
 	for _, field := range fields {
-
 		tag := field.Tag("flag")
 		if tag == "" || tag == "-" {
+			// maybe it's nested?
+
+			dstElem := reflect.ValueOf(dst).Elem().FieldByName(field.Name())
+			if dstElem.Kind() != reflect.Struct {
+				continue
+			}
+
+			err := bindFlags(dstElem.Addr().Interface())
+			if err != nil {
+				return err
+			}
+
 			continue
 		}
 
