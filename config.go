@@ -29,9 +29,20 @@ func bindFlags(dst interface{}) error {
 	for _, field := range fields {
 		tag := field.Tag("flag")
 		if tag == "" || tag == "-" {
-			// maybe it's nested?
+			// Maybe it's nested?
 
 			dstElem := reflect.ValueOf(dst).Elem().FieldByName(field.Name())
+
+			if dstElem.Kind() == reflect.Ptr {
+				if dstElem.IsNil() {
+					// Create new non-nil ptr
+					dstElem.Set(reflect.New(dstElem.Type().Elem()))
+				}
+
+				// Dereference
+				dstElem = dstElem.Elem()
+			}
+
 			if dstElem.Kind() != reflect.Struct {
 				continue
 			}
