@@ -55,9 +55,22 @@ func bindFlags(dst interface{}) error {
 			continue
 		}
 
-		// Is value of the "flag" tag in flags?
-		f := flag.Lookup(tag)
-		if f == nil {
+		var (
+			found bool
+			f     *flag.Flag
+		)
+		// Is value of the "flag" tag in flags, and specifically given?
+		//
+		// Visit function visit all the given command line arguments, so that
+		// we can bypass default values of flags.
+		flag.Visit(func(fl *flag.Flag) {
+			if fl.Name == tag {
+				found = true
+				f = fl
+			}
+		})
+
+		if !found {
 			continue
 		}
 

@@ -17,11 +17,11 @@ Call the `Load()` method to load a config.
         Port int    `toml:"-" flag:"port"`
     }
 
-    flag.Int("port", 8080, "Port to listen on") // <- notice no variable
+    _ = flag.Int("port", 8080, "Port to listen on") // <- notice no variable
     flag.Parse()
 
     var cfg MyConfig
-    err := config.Load("config.toml", &cfg)
+    err := config.Load("./config.toml", &cfg)
 
     fmt.Printf("Loaded config: %#v\n", cfg)
     // Port info is in cfg.Port, parsed from `-port` param

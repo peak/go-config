@@ -2,187 +2,194 @@ package config
 
 import (
 	"flag"
-	"reflect"
+	"io/ioutil"
+	"os"
 	"testing"
 )
 
-const (
-	testWithFlagPort       = 21
-	testWithFlagNestedPort = 9
-)
-
-func init() {
-	// Set up flags here so that we can run tests in parallel
-	flag.Int("testport", testWithFlagPort, "Test flag binding in config")
-	flag.Int("nestedport", testWithFlagNestedPort, "Test flag binding in config")
-	flag.Parse()
-}
-
 func TestSimple(t *testing.T) {
-	t.Parallel()
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
 
-	type configType struct {
+	var cfg struct {
 		Key string `toml:"key"`
 	}
-	const (
-		inputFile = "testdata/config.toml"
-	)
-	var (
-		expected = configType{Key: "Value"}
-		dst      configType
-	)
 
-	err := Load(inputFile, &dst)
+	_, err := tmp.WriteString(`key = "Value"`)
 	if err != nil {
-		t.Errorf("Got unexpected error %v", err)
-		return
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !reflect.DeepEqual(dst, expected) {
-		t.Errorf("got %+v, want %+v", dst, expected)
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Key != "Value" {
+		t.Fatalf("got: %v, expected: %v", cfg.Key, "Value")
 	}
 }
 
-func TestWithFlag(t *testing.T) {
-	t.Parallel()
-
-	type configType struct {
-		Key  string `toml:"key"`
-		Port int    `toml:"-" flag:"testport"`
+func TestLoad_FlagGiven(t *testing.T) {
+	var cfg struct {
+		Host string `toml:"host"`
+		Port int    `toml:"-" flag:"port"`
 	}
-	const (
-		inputFile = "testdata/config.toml"
-	)
-	var (
-		expected = configType{Key: "Value", Port: testWithFlagPort}
-		dst      configType
-	)
 
-	err := Load(inputFile, &dst)
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.Int("port", 9090, "Port to listen to")
+	flag.CommandLine = fs
+	flag.CommandLine.Parse([]string{"-port", "9090"}) // flag given
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`host = "localhost"`)
 	if err != nil {
-		t.Errorf("Got unexpected error %v", err)
-		return
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !reflect.DeepEqual(dst, expected) {
-		t.Errorf("got %+v, want %+v", dst, expected)
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Host != "localhost" {
+		t.Errorf("got: %v, expected: %v", cfg.Host, "localhost")
+	}
+
+	if cfg.Port != 9090 {
+		t.Errorf("got: %v, expected: %v", cfg.Port, 9090)
+	}
+}
+
+func TestLoad_FlagNotGiven(t *testing.T) {
+	var cfg struct {
+		Host string `toml:"host"`
+		Port int    `toml:"-" flag:"port"`
+	}
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.Int("port", 9090, "Port to listen to")
+	flag.CommandLine = fs
+	flag.CommandLine.Parse(nil) // flag not given
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`host = "localhost"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Host != "localhost" {
+		t.Errorf("got: %v, expected: %v", cfg.Host, "localhost")
+	}
+
+	if cfg.Port != 0 {
+		t.Errorf("got: %v, expected: %v", cfg.Port, 0)
+	}
+}
+
+func TestLoad_FlagNotGivenWithDefaultValue(t *testing.T) {
+	var cfg struct {
+		Host string `toml:"host"`
+		Port int    `toml:"port" flag:"port"`
+	}
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.Int("port", 9090, "Port to listen to")
+	flag.CommandLine = fs
+	flag.CommandLine.Parse(nil) // flag not given and has default value
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`
+host = "localhost"
+port = 1010
+`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Host != "localhost" {
+		t.Errorf("got: %v, expected: %v", cfg.Host, "localhost")
+	}
+
+	if cfg.Port != 1010 {
+		t.Errorf("got: %v, expected: %v", cfg.Port, 1010)
 	}
 }
 
 func TestWithFlagNested(t *testing.T) {
-	t.Parallel()
-
-	type nestedType struct {
-		Port int `toml:"port" flag:"nestedport"`
+	var cfg struct {
+		Server struct {
+			Host string `toml:"host"`
+			Port int    `toml:"port"`
+		} `toml:"server"`
 	}
-	type configType struct {
-		Key    string     `toml:"key"`
-		Nested nestedType `toml:"sub"`
-	}
-	const (
-		inputFile = "testdata/config-nested.toml"
-	)
-	var (
-		expected = configType{Key: "Value", Nested: nestedType{Port: testWithFlagNestedPort}}
-		dst      configType
-	)
 
-	err := Load(inputFile, &dst)
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`
+[server]
+host = "localhost"
+port = 1010
+`)
 	if err != nil {
-		t.Errorf("Got unexpected error %v", err)
-		return
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !reflect.DeepEqual(dst, expected) {
-		t.Errorf("got %+v, want %+v", dst, expected)
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Server.Host != "localhost" {
+		t.Errorf("got: %v, expected: %v", cfg.Server.Host, "localhost")
+	}
+
+	if cfg.Server.Port != 1010 {
+		t.Errorf("got: %v, expected: %v", cfg.Server.Port, 1010)
 	}
 }
 
 func TestWithFlagNestedPtr(t *testing.T) {
-	t.Parallel()
-
-	type nestedType struct {
-		Port int `toml:"port" flag:"nestedport"`
+	var cfg struct {
+		Server *struct {
+			Host string `toml:"host"`
+			Port int    `toml:"port"`
+		} `toml:"server"`
 	}
-	type configType struct {
-		Key    string      `toml:"key"`
-		Nested *nestedType `toml:"sub"`
-	}
-	const (
-		inputFile = "testdata/config-nested.toml"
-	)
-	var (
-		expected = configType{Key: "Value", Nested: &nestedType{Port: testWithFlagNestedPort}}
-		dst      configType
-	)
 
-	err := Load(inputFile, &dst)
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`
+[server]
+host = "localhost"
+port = 1010
+`)
 	if err != nil {
-		t.Errorf("Got unexpected error %v", err)
-		return
+		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if !reflect.DeepEqual(*dst.Nested, *expected.Nested) {
-		t.Errorf("got %+v, want %+v", *dst.Nested, *expected.Nested)
-	}
-}
-
-func TestWithFlagNestedMissing(t *testing.T) {
-	t.Parallel()
-
-	type nestedType struct {
-		Port int `toml:"port" flag:"nestedport"`
-	}
-	type configType struct {
-		Key    string     `toml:"key"`
-		Nested nestedType `toml:"missingsub"`
-	}
-	const (
-		inputFile = "testdata/config-nested.toml"
-	)
-	var (
-		expected = configType{Key: "Value", Nested: nestedType{Port: testWithFlagNestedPort}}
-		dst      configType
-	)
-
-	err := Load(inputFile, &dst)
-	if err != nil {
-		t.Errorf("Got unexpected error %v", err)
-		return
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
 	}
 
-	if !reflect.DeepEqual(dst, expected) {
-		t.Errorf("got %+v, want %+v", dst, expected)
-	}
-}
-
-func TestWithFlagNestedMissingPtr(t *testing.T) {
-	t.Parallel()
-
-	type nestedType struct {
-		Port int `toml:"port" flag:"nestedport"`
-	}
-	type configType struct {
-		Key    string      `toml:"key"`
-		Nested *nestedType `toml:"missingsub"`
-	}
-	const (
-		inputFile = "testdata/config-nested.toml"
-	)
-	var (
-		expected = configType{Key: "Value", Nested: &nestedType{Port: testWithFlagNestedPort}}
-		dst      configType
-	)
-
-	err := Load(inputFile, &dst)
-	if err != nil {
-		t.Errorf("Got unexpected error %v", err)
-		return
+	if cfg.Server.Host != "localhost" {
+		t.Errorf("got: %v, expected: %v", cfg.Server.Host, "localhost")
 	}
 
-	if dst.Nested == nil {
-		t.Errorf("got <nil>, want %+v", *expected.Nested)
-	} else if !reflect.DeepEqual(*dst.Nested, *expected.Nested) {
-		t.Errorf("got %+v, want %+v", *dst.Nested, *expected.Nested)
+	if cfg.Server.Port != 1010 {
+		t.Errorf("got: %v, expected: %v", cfg.Server.Port, 1010)
 	}
 }
