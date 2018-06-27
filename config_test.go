@@ -75,7 +75,10 @@ func TestLoad_FlagNotGiven(t *testing.T) {
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
 
-	_, err := tmp.WriteString(`host = "localhost"`)
+	_, err := tmp.WriteString(`
+host = "localhost"
+port = 7070
+`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -126,6 +129,38 @@ port = 1010
 	if cfg.Port != 1010 {
 		t.Errorf("got: %v, expected: %v", cfg.Port, 1010)
 	}
+}
+
+func TestLoad_UseFlagDefaultValueIfKeyNotFoundInConfig(t *testing.T) {
+	var cfg struct {
+		LogLevel string `toml:"logLevel"`
+		Port     int    `toml:"-" flag:"port"`
+	}
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+	_, err := tmp.WriteString(`
+LogLevel = "debug"
+`)
+	if err != nil {
+		t.Fatalf("write config file failed: %v", err)
+	}
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.Int("port", 9090, "Port to listen to")
+	flag.CommandLine = fs
+	flag.CommandLine.Parse(nil) // flag not given and has default value
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("failed to load config from file: %v", err)
+	}
+
+	if cfg.LogLevel != "debug" {
+		t.Errorf("got: %v, expected: %v", cfg.LogLevel, "debug")
+	}
+	if cfg.Port != 9090 {
+		t.Errorf("got: %v, expected: %v", cfg.Port, 9090)
+	}
+
 }
 
 func TestWithFlagNested(t *testing.T) {

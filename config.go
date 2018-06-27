@@ -7,23 +7,25 @@ import (
 	"reflect"
 	"strconv"
 
+	"strings"
+
 	"github.com/BurntSushi/toml"
 	"github.com/fatih/structs"
 )
 
 // Load loads filepath into dst. It also handles "flag" binding.
 func Load(filepath string, dst interface{}) error {
-	_, err := toml.DecodeFile(filepath, dst)
+	metadata, err := toml.DecodeFile(filepath, dst)
 
 	if err != nil {
 		return err
 	}
 
-	return bindFlags(dst)
+	return bindFlags(dst, metadata)
 }
 
 // bindFlags will bind CLI flags to their respective elements in dst, defined by the struct-tag "flag".
-func bindFlags(dst interface{}) error {
+func bindFlags(dst interface{}, metadata toml.MetaData) error {
 	// Iterate all fields
 	fields := structs.Fields(dst)
 	for _, field := range fields {
@@ -47,7 +49,7 @@ func bindFlags(dst interface{}) error {
 				continue
 			}
 
-			err := bindFlags(dstElem.Addr().Interface())
+			err := bindFlags(dstElem.Addr().Interface(), metadata)
 			if err != nil {
 				return err
 			}
@@ -55,27 +57,33 @@ func bindFlags(dst interface{}) error {
 			continue
 		}
 
-		var (
-			found bool
-			f     *flag.Flag
-		)
-		// Is value of the "flag" tag in flags, and specifically given?
-		//
-		// Visit function visit all the given command line arguments, so that
-		// we can bypass default values of flags.
-		flag.Visit(func(fl *flag.Flag) {
-			if fl.Name == tag {
-				found = true
-				f = fl
-			}
-		})
+		// if config struct has "flag" tag in flags:
+		// 	  if flag is set, use flag value
+		//	  else
+		//       if toml file has key, use toml value
+		//       else use flag default value
 
-		if !found {
-			continue
+		useFlagDefaultValue := false
+		if !isFlagSet(tag) {
+			tomlHasKey := false
+			for _, key := range metadata.Keys() {
+				if strings.ToLower(key.String()) == strings.ToLower(tag) {
+					tomlHasKey = true
+					break
+				}
+			}
+			if tomlHasKey {
+				continue
+			} else {
+				useFlagDefaultValue = true
+			}
 		}
 
 		// CLI value
-		fVal := f.Value.String()
+		fVal := flag.Lookup(tag).Value.String()
+		if useFlagDefaultValue {
+			fVal = flag.Lookup(tag).DefValue
+		}
 
 		// Destination
 		dstElem := reflect.ValueOf(dst).Elem().FieldByName(field.Name())
@@ -115,4 +123,14 @@ func bindFlags(dst interface{}) error {
 	}
 
 	return nil
+}
+
+func isFlagSet(tag string) bool {
+	flagSet := false
+	flag.Visit(func(fl *flag.Flag) {
+		if fl.Name == tag {
+			flagSet = true
+		}
+	})
+	return flagSet
 }
