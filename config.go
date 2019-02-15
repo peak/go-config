@@ -80,6 +80,11 @@ func bindFlags(dst interface{}, metadata toml.MetaData) error {
 		}
 
 		// CLI value
+
+		if flag.Lookup(tag) == nil {
+			continue
+		}
+
 		fVal := flag.Lookup(tag).Value.String()
 		if useFlagDefaultValue {
 			fVal = flag.Lookup(tag).DefValue
