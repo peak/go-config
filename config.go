@@ -82,7 +82,7 @@ func bindFlags(dst interface{}, metadata toml.MetaData) error {
 		// CLI value
 
 		if flag.Lookup(tag) == nil {
-			continue
+			return fmt.Errorf("flag '%v' is not defined but given as flag struct tag in %v.%v", tag, reflect.TypeOf(dst), field.Name())
 		}
 
 		fVal := flag.Lookup(tag).Value.String()

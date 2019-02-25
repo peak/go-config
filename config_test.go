@@ -229,13 +229,15 @@ port = 1010
 	}
 }
 
-func TestLoad_ZeroValueIfFlagNotSetAndNotGiven(t *testing.T) {
+func TestLoad_ErrorIfFlagNotSetAndNotGiven(t *testing.T) {
 	var cfg struct {
 		LogLevel string `toml:"logLevel"`
 		Port     int    `toml:"port" flag:"port"`
 	}
+
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
+
 	_, err := tmp.WriteString(`
 LogLevel = "debug"
 `)
@@ -248,12 +250,7 @@ LogLevel = "debug"
 	flag.CommandLine = fs
 	flag.CommandLine.Parse(nil) // flag not given and has default value
 
-	if err := Load(tmp.Name(), &cfg); err != nil {
-		t.Fatalf("unexpected error %v", err)
+	if err := Load(tmp.Name(), &cfg); err == nil {
+		t.Fatalf("expected error, got nil")
 	}
-
-	if cfg.Port != 0 {
-		t.Errorf("got %v, expected %v", cfg.Port, 0)
-	}
-
 }
