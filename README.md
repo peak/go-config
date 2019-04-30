@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/peak/go-config.svg?branch=master)](https://travis-ci.org/peak/go-config)
+
 # go-config
 
 Offers a rich configuration file handler.
