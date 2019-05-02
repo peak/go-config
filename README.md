@@ -1,4 +1,5 @@
 [![Build Status](https://travis-ci.org/peak/go-config.svg?branch=master)](https://travis-ci.org/peak/go-config)
+[![Go Report Card](https://goreportcard.com/badge/github.com/peak/go-config)](https://goreportcard.com/report/github.com/peak/go-config)
 
 # go-config
 
