@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/peakgames/go-config"
+	"github.com/peak/go-config"
 )
 
 type cfgType struct {
