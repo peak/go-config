@@ -83,7 +83,7 @@ func bindFlags(dst interface{}, metadata toml.MetaData) error {
 
 		//	if config struct has "flag" tag:
 		//		if flag is set, use flag value
-		//		else if env has has key, use environment value
+		//		else if env has key, use environment value
 		//		else if toml file has key, use toml value
 		//		else use flag default value
 
@@ -150,19 +150,19 @@ func setDstElem(dst interface{}, field *structs.Field, fVal string) error {
 		} else {
 			dstElem.SetBool(p)
 		}
-	case "int":
+	case "int", "int8", "int16", "int32", "int64":
 		if p, err := strconv.ParseInt(fVal, 10, 0); err != nil {
 			return err
 		} else {
 			dstElem.SetInt(p)
 		}
-	case "uint":
+	case "uint", "uint8", "uint16", "uint32", "uint64", "uintptr":
 		if p, err := strconv.ParseUint(fVal, 10, 0); err != nil {
 			return err
 		} else {
 			dstElem.SetUint(p)
 		}
-	case "float64":
+	case "float64", "float32":
 		if p, err := strconv.ParseFloat(fVal, 64); err != nil {
 			return err
 		} else {

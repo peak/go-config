@@ -470,6 +470,7 @@ func TestLoad_ErrorIfFlagTypeMismatch(t *testing.T) {
 	}
 
 	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
 
 	// flag
 	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
@@ -489,11 +490,81 @@ func TestLoad_ErrorIfEnvTypeMismatch(t *testing.T) {
 	}
 
 	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
 
 	// env
 	os.Setenv("key_float", "key_float_env")
 
 	if err := Load(tmp.Name(), &cfg); err == nil {
 		t.Fatalf("expected error, got nil")
+	}
+}
+
+func TestLoad_CheckNumericTypes(t *testing.T) {
+	var cfg struct {
+		Float32 float32 `flag:"float32"`
+		Int8    int8    `toml:"int8"`
+		Int16   int16   `env:"int16"`
+		Uint32  uint32  `toml:"uint32"`
+		Uint64  uint64  `env:"uint64"`
+		UintPtr uintptr `env:"uintptr"`
+		Bool    bool    `flag:"bool"`
+	}
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`
+int8 = -2
+uint32 = 1
+`)
+	if err != nil {
+		t.Fatalf("write config file failed: %v", err)
+	}
+
+	// flag
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.Bool("bool", false, "")
+	_ = fs.Float64("float32", 0.0, "")
+
+	flag.CommandLine = fs
+	flag.CommandLine.Parse([]string{"-bool", "true"})   // flag given
+	flag.CommandLine.Parse([]string{"-float32", "1.3"}) // flag given
+
+	// env
+	os.Setenv("uint64", "100000000000")
+	os.Setenv("uintptr", "20")
+	os.Setenv("int16", "3")
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Float32 != 1.3 {
+		t.Errorf("got: %v, expected: %v", cfg.Float32, 1.3)
+	}
+
+	if cfg.Int8 != -2 {
+		t.Errorf("got: %v, expected: %v", cfg.Int8, -2)
+	}
+
+	if cfg.Int16 != 3 {
+		t.Errorf("got: %v, expected: %v", cfg.Int16, 3)
+	}
+
+	if cfg.Uint32 != 1 {
+		t.Errorf("got: %v, expected: %v", cfg.Uint32, 1)
+	}
+
+	if cfg.Uint64 != 100000000000 {
+		t.Errorf("got: %v, expected: %v", cfg.Uint64, 100000000000)
+	}
+
+	if cfg.UintPtr != 20 {
+		t.Errorf("got: %v, expected: %v", cfg.UintPtr, 20)
+	}
+
+	if cfg.Bool != true {
+		t.Errorf("got: %v, expected: %v", cfg.Bool, true)
 	}
 }
