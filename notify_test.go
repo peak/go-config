@@ -13,8 +13,9 @@ func TestNotify(t *testing.T) {
 		Key string `toml:"key"`
 	}
 
-	tmp, _ := ioutil.TempFile("", "")
-	defer os.Remove(tmp.Name())
+	dir, _ := ioutil.TempDir("", "")
+	tmp, _ := ioutil.TempFile(dir, "")
+	defer os.RemoveAll(dir)
 
 	if _, err := tmp.WriteString(`key = "hey"`); err != nil {
 		t.Fatalf("unexpected error: %v", err)
