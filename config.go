@@ -21,12 +21,12 @@ const (
 
 // Load loads filepath into dst. It also handles "flag" binding.
 func Load(filepath string, dst interface{}) error {
-	if err := bindEnvVariables(dst); err != nil {
+	metadata, err := toml.DecodeFile(filepath, dst)
+	if err != nil {
 		return err
 	}
 
-	metadata, err := toml.DecodeFile(filepath, dst)
-	if err != nil {
+	if err := bindEnvVariables(dst); err != nil {
 		return err
 	}
 
@@ -81,15 +81,16 @@ func bindFlags(dst interface{}, metadata toml.MetaData) error {
 			continue
 		}
 
-		// if config struct has "flag" tag in flags:
-		// 	  if flag is set, use flag value
-		//	  else
-		//       if toml file has key, use toml value
-		//       else use flag default value
+		//	if config struct has "flag" tag:
+		//		if flag is set, use flag value
+		//		else if env has has key, use environment value
+		//		else if toml file has key, use toml value
+		//		else use flag default value
 
 		useFlagDefaultValue := false
 		if !isFlagSet(tag) {
-			if tomlHasKey(metadata, tag) {
+			_, envHasKey := os.LookupEnv(tag)
+			if envHasKey || tomlHasKey(metadata, tag) {
 				continue
 			} else {
 				useFlagDefaultValue = true

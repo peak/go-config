@@ -98,12 +98,16 @@ port = 7070
 
 func TestLoad_FlagNotGivenWithDefaultValue(t *testing.T) {
 	var cfg struct {
-		Host string `toml:"host"`
-		Port int    `toml:"port" flag:"port"`
+		Host   string `toml:"host"`
+		Port   int    `toml:"port" flag:"port"`
+		Mode   string `toml:"mode" env:"mode" flag:"mode"`
+		Secret string `env:"secret" flag:"secret"`
 	}
 
 	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
 	_ = fs.Int("port", 9090, "Port to listen to")
+	_ = fs.String("mode", "warning", "Log mode")
+	_ = fs.String("secret", "secret_flag", "Secret variable")
 	flag.CommandLine = fs
 	flag.CommandLine.Parse(nil) // flag not given and has default value
 
@@ -113,10 +117,14 @@ func TestLoad_FlagNotGivenWithDefaultValue(t *testing.T) {
 	_, err := tmp.WriteString(`
 host = "localhost"
 port = 1010
+mode = "info"
 `)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+
+	os.Setenv("mode", "debug")
+	os.Setenv("secret", "secret_env")
 
 	if err := Load(tmp.Name(), &cfg); err != nil {
 		t.Fatalf("unexpected error %v", err)
@@ -129,12 +137,27 @@ port = 1010
 	if cfg.Port != 1010 {
 		t.Errorf("got: %v, expected: %v", cfg.Port, 1010)
 	}
+
+	// environment dominant over toml
+	if cfg.Mode != "debug" {
+		t.Errorf("got: %v, expected: %v", cfg.Mode, "debug")
+	}
+
+	// environment dominant over toml
+	if cfg.Mode != "debug" {
+		t.Errorf("got: %v, expected: %v", cfg.Mode, "debug")
+	}
+
+	// environment dominant over toml
+	if cfg.Secret != "secret_env" {
+		t.Errorf("got: %v, expected: %v", cfg.Secret, "secret_env")
+	}
 }
 
 func TestLoad_UseFlagDefaultValueIfKeyNotFoundInConfig(t *testing.T) {
 	var cfg struct {
 		LogLevel string `toml:"logLevel"`
-		Port     int    `toml:"-" flag:"port"`
+		Port     int    `toml:"-" env:"-" flag:"port"`
 	}
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
@@ -157,10 +180,10 @@ LogLevel = "debug"
 	if cfg.LogLevel != "debug" {
 		t.Errorf("got: %v, expected: %v", cfg.LogLevel, "debug")
 	}
+
 	if cfg.Port != 9090 {
 		t.Errorf("got: %v, expected: %v", cfg.Port, 9090)
 	}
-
 }
 
 func TestLoad_FlagNested(t *testing.T) {
@@ -374,7 +397,7 @@ func TestLoad_CheckTagPriorities(t *testing.T) {
 		Key2 string `toml:"key2" env:"key2"`
 		Key3 string `flag:"key3" env:"key3"`
 		Key4 string `toml:"key4" flag:"key4" env:"key4"`
-		Key5 string `env:"key5"`
+		Key5 string `toml:"key5"`
 	}
 
 	tmp, _ := ioutil.TempFile("", "")
@@ -385,6 +408,7 @@ func TestLoad_CheckTagPriorities(t *testing.T) {
 key1 = "key1_toml"
 key2 = "key2_toml"
 key4 = "key4_toml"
+key5 = "key5_toml"
 `)
 
 	if err != nil {
@@ -406,23 +430,22 @@ key4 = "key4_toml"
 	os.Setenv("key2", "key2_env")
 	os.Setenv("key3", "key3_env")
 	os.Setenv("key4", "key4_env")
-	os.Setenv("key5", "key5_env")
 
 	if err := Load(tmp.Name(), &cfg); err != nil {
 		t.Fatalf("unexpected error %v", err)
 	}
 
 	// priority order
-	// -- flag > toml > env
+	// -- flag > env > toml
 
 	// flag has higher priority than toml
 	if cfg.Key1 != "key1_flag" {
 		t.Errorf("got: %v, expected: %v", cfg.Key1, "key1_flag")
 	}
 
-	// toml has higher priority than env
-	if cfg.Key2 != "key2_toml" {
-		t.Errorf("got: %v, expected: %v", cfg.Key2, "key2_toml")
+	// env has higher priority than toml
+	if cfg.Key2 != "key2_env" {
+		t.Errorf("got: %v, expected: %v", cfg.Key2, "key2_env")
 	}
 
 	// flag has higher priority than env
@@ -435,13 +458,13 @@ key4 = "key4_toml"
 		t.Errorf("got: %v, expected: %v", cfg.Key4, "key4_flag")
 	}
 
-	// env has lowest priority
-	if cfg.Key5 != "key5_env" {
-		t.Errorf("got: %v, expected: %v", cfg.Key5, "key5_env")
+	// toml has lowest priority
+	if cfg.Key5 != "key5_toml" {
+		t.Errorf("got: %v, expected: %v", cfg.Key5, "key5_toml")
 	}
 }
 
-func TestLoad_ErrorIfFlagTagMismatch(t *testing.T) {
+func TestLoad_ErrorIfFlagTypeMismatch(t *testing.T) {
 	var cfg struct {
 		Key int `flag:"key1"`
 	}
@@ -460,7 +483,7 @@ func TestLoad_ErrorIfFlagTagMismatch(t *testing.T) {
 	}
 }
 
-func TestLoad_ErrorIfEnvTagMismatch(t *testing.T) {
+func TestLoad_ErrorIfEnvTypeMismatch(t *testing.T) {
 	var cfg struct {
 		KeyFloat float64 `env:"key_float"`
 	}
