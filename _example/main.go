@@ -12,10 +12,9 @@ import (
 )
 
 type cfgType struct {
-	Key1   string `toml:"key1"`
-	Key2   string `toml:"key2"`
-	Port   int    `toml:"-" flag:"port" env:"port"`
-	Secret string `env:"secret"`
+	Key1 string `toml:"key1"`
+	Key2 string `toml:"key2"`
+	Port int    `toml:"-" flag:"port"`
 }
 
 func main() {
