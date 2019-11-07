@@ -363,17 +363,19 @@ func TestLoad_EnvGivenWithNestedPtr(t *testing.T) {
 	}
 }
 
-func TestLoad_ErrorIfEnvSetAndNotGiven(t *testing.T) {
+func TestLoad_ParseOtherTagsIfEnvSetAndNotGiven(t *testing.T) {
 	var cfg struct {
-		LogLevel string `toml:"logLevel" flag:"logLevel"`
+		LogLevel string `env:"logLevel" flag:"logLevel"`
 		Port     int    `toml:"port" env:"port"`
+		Host     string `toml:"host" env:"host" flag:"host"`
 	}
 
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
 
 	_, err := tmp.WriteString(`
-LogLevel = "debug"
+port = 7777
+flag = "localhost"
 `)
 	if err != nil {
 		t.Fatalf("write config file failed: %v", err)
@@ -381,13 +383,34 @@ LogLevel = "debug"
 
 	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
 	_ = fs.String("logLevel", "debug", "Log level")
+	_ = fs.String("host", "localhost", "Host address")
+
 	flag.CommandLine = fs
-	flag.CommandLine.Parse([]string{"-logLevel", "debug"}) // flag given
+	flag.CommandLine.Parse([]string{"-logLevel", "debug"})       // flag given
+	flag.CommandLine.Parse([]string{"-host", "dev.example.com"}) // flag given
 
 	// os.Setenv("port", "9090") // env not set
+	// os.Setenv("logLevel", "warning") // env not set
+	// os.Setenv("host", "secret.example.com") // env not set
 
-	if err := Load(tmp.Name(), &cfg); err == nil {
-		t.Fatalf("expected error, got nil")
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Port != 7777 {
+		t.Errorf("got: %v, expected: %v", cfg.Port, 7777)
+	}
+
+	if cfg.LogLevel != "debug" {
+		t.Errorf("got: %v, expected: %v", cfg.LogLevel, "debug")
+	}
+
+	if cfg.LogLevel != "debug" {
+		t.Errorf("got: %v, expected: %v", cfg.LogLevel, "debug")
+	}
+
+	if cfg.Host != "dev.example.com" {
+		t.Errorf("got: %v, expected: %v", cfg.Host, "dev.example.com")
 	}
 }
 

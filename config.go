@@ -53,7 +53,7 @@ func bindEnvVariables(dst interface{}) error {
 
 		fVal, ok := os.LookupEnv(tag)
 		if !ok {
-			return fmt.Errorf("env '%v' is not defined but given as env struct tag in %v.%v", tag, reflect.TypeOf(dst), field.Name())
+			continue
 		}
 
 		if err := setDstElem(dst, field, fVal); err != nil {

@@ -10,6 +10,28 @@ Offers a rich configuration file handler.
 - Bind environment variables
 - Watch file (or files) and get notified if they change
 
+---
+
+Uses the following precedence order:
+
+* `flag`
+* `env`
+* `toml`
+
+
+| flag | env | toml |  result |
+|:----:|:-----:|:-------------:|:---:|
+|  &#9745;   |   &#9745;   |     &#9745;         |  **flag** |
+|  &#9745;   |   &#9745;   |     &#9744;         |  **flag** |
+|  &#9745;   |   &#9744;   |     &#9745;         |  **flag** |
+|  &#9744;   |   &#9745;   |     &#9745;         |  **env** |
+|  &#9745;   |   &#9744;   |     &#9744;         |  **flag** |
+|  &#9744;   |   &#9745;   |     &#9744;         |  **env** |
+|  &#9744;   |   &#9744;   |     &#9745;         |  **toml** |
+
+If `flag` is set and not given, it will parse `env` or `toml` according to their precedence order (otherwise flag default).
+
+
 ## Basic Example
 
 Call the `Load()` method to load a config.
