@@ -17,6 +17,7 @@ import (
 const (
 	envTag  string = "env"
 	flagTag string = "flag"
+	tomlTag string = "toml"
 )
 
 // Load loads filepath into dst. It also handles "flag" binding.
@@ -89,8 +90,8 @@ func bindFlags(dst interface{}, metadata toml.MetaData) error {
 
 		useFlagDefaultValue := false
 		if !isFlagSet(tag) {
-			_, envHasKey := os.LookupEnv(tag)
-			if envHasKey || tomlHasKey(metadata, tag) {
+			_, envHasKey := os.LookupEnv(field.Tag(envTag))
+			if envHasKey || tomlHasKey(metadata, field.Tag(tomlTag)) {
 				continue
 			} else {
 				useFlagDefaultValue = true

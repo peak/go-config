@@ -14,7 +14,8 @@ import (
 type cfgType struct {
 	Key1   string `toml:"key1"`
 	Key2   string `toml:"key2"`
-	Port   int    `toml:"-" flag:"port" env:"port"`
+	Host   string `toml:"host" flag:"server-host"`
+	Port   int    `toml:"-" flag:"port" env:"PORT"`
 	Secret string `env:"secret"`
 }
 
@@ -30,6 +31,7 @@ func main() {
 
 	filename := flag.String("config", "test.toml", "Config filename")
 	flag.Int("port", 8080, "Port to listen on")
+	flag.String("server-host", "default", "Server host address")
 	flag.Parse()
 
 	var cfg cfgType

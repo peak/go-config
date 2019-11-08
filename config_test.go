@@ -2,48 +2,77 @@ package config
 
 import (
 	"flag"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
 )
 
-func TestSimple(t *testing.T) {
-	tmp, _ := ioutil.TempFile("", "")
-	defer os.Remove(tmp.Name())
-
+func TestLoad_FlagSetAndGiven(t *testing.T) {
 	var cfg struct {
-		Key string `toml:"key"`
+		Hostname string `env:"-" toml:"-" flag:"host-name"`
 	}
 
-	_, err := tmp.WriteString(`key = "Value"`)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if err := Load(tmp.Name(), &cfg); err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if cfg.Key != "Value" {
-		t.Fatalf("got: %v, expected: %v", cfg.Key, "Value")
-	}
-}
-
-func TestLoad_FlagGiven(t *testing.T) {
-	var cfg struct {
-		Host string `toml:"host"`
-		Port int    `toml:"-" flag:"port"`
-	}
+	expected := "example.com"
 
 	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
-	_ = fs.Int("port", 9090, "Port to listen to")
+	_ = fs.String("host-name", "default", "")
 	flag.CommandLine = fs
-	flag.CommandLine.Parse([]string{"-port", "9090"}) // flag given
+	flag.CommandLine.Parse([]string{"-host-name", expected}) // flag given
 
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
 
-	_, err := tmp.WriteString(`host = "localhost"`)
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
+	}
+}
+
+func TestLoad_FlagSetAndGiven_EnvSet(t *testing.T) {
+	os.Clearenv()
+	var cfg struct {
+		Hostname string `env:"HOST_NAME" flag:"host-name"`
+	}
+	expected := "example.com"
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.String("host-name", "default", "")
+	flag.CommandLine = fs
+	flag.CommandLine.Parse([]string{"-host-name", expected}) // flag given
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	os.Setenv("HOST_NAME", "secret.example.com")
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
+	}
+}
+
+func TestLoad_FlagSetAndGiven_TomlSet(t *testing.T) {
+	var cfg struct {
+		Hostname string `toml:"host_name" flag:"host-name"`
+	}
+	expected := "example.com"
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.String("host-name", "default", "	")
+	flag.CommandLine = fs
+	flag.CommandLine.Parse([]string{"-host-name", expected}) // flag given
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`host_name = "toml.example.com"`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -52,33 +81,106 @@ func TestLoad_FlagGiven(t *testing.T) {
 		t.Fatalf("unexpected error %v", err)
 	}
 
-	if cfg.Host != "localhost" {
-		t.Errorf("got: %v, expected: %v", cfg.Host, "localhost")
-	}
-
-	if cfg.Port != 9090 {
-		t.Errorf("got: %v, expected: %v", cfg.Port, 9090)
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
 	}
 }
 
-func TestLoad_FlagNotGiven(t *testing.T) {
+func TestLoad_FlagSetAndGiven_TomlSet_EnvSet(t *testing.T) {
+	os.Clearenv()
 	var cfg struct {
-		Host string `toml:"host"`
-		Port int    `toml:"-" flag:"port"`
+		Hostname string `env:"HOST_NAME" toml:"host_name" flag:"host-name"`
 	}
+	expected := "example.com"
 
 	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
-	_ = fs.Int("port", 9090, "Port to listen to")
+	_ = fs.String("host-name", "default", "")
+	flag.CommandLine = fs
+	flag.CommandLine.Parse([]string{"-host-name", expected}) // flag given
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`host_name = "toml.example.com"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	os.Setenv("HOST_NAME", "secret.example.com")
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
+	}
+}
+
+// flag not given
+func TestLoad_FlagSetAndNotGiven(t *testing.T) {
+	var cfg struct {
+		Hostname string `env:"_" toml:"_" flag:"host-name"`
+	}
+
+	expected := "default.example.com"
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.String("host-name", expected, "")
 	flag.CommandLine = fs
 	flag.CommandLine.Parse(nil) // flag not given
 
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
 
-	_, err := tmp.WriteString(`
-host = "localhost"
-port = 7070
-`)
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
+	}
+}
+
+func TestLoad_FlagSetAndNotGiven_EnvSet(t *testing.T) {
+	os.Clearenv()
+	var cfg struct {
+		Hostname string `env:"HOST_NAME" flag:"host-name"`
+	}
+	expected := "secret.example.com"
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.String("host-name", "default", "")
+	flag.CommandLine = fs
+	flag.CommandLine.Parse(nil) // flag given
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	os.Setenv("HOST_NAME", expected)
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
+	}
+}
+
+func TestLoad_FlagSetAndNotGiven_TomlSet(t *testing.T) {
+	var cfg struct {
+		Hostname string `toml:"host_name" flag:"host-name"`
+	}
+	expected := "toml.example.com"
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.String("host-name", "default", "")
+	flag.CommandLine = fs
+	flag.CommandLine.Parse(nil) // flag given
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(fmt.Sprintf(`host_name = "%s"`, expected))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -87,102 +189,146 @@ port = 7070
 		t.Fatalf("unexpected error %v", err)
 	}
 
-	if cfg.Host != "localhost" {
-		t.Errorf("got: %v, expected: %v", cfg.Host, "localhost")
-	}
-
-	if cfg.Port != 0 {
-		t.Errorf("got: %v, expected: %v", cfg.Port, 0)
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
 	}
 }
 
-func TestLoad_FlagNotGivenWithDefaultValue(t *testing.T) {
+func TestLoad_FlagSetAndNotGiven_TomlSet_EnvSet(t *testing.T) {
+	os.Clearenv()
 	var cfg struct {
-		Host   string `toml:"host"`
-		Port   int    `toml:"port" flag:"port"`
-		Mode   string `toml:"mode" env:"mode" flag:"mode"`
-		Secret string `env:"secret" flag:"secret"`
+		Hostname string `env:"HOST_NAME" toml:"host_name" flag:"host-name"`
 	}
+	expected := "secret.example.com"
 
 	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
-	_ = fs.Int("port", 9090, "Port to listen to")
-	_ = fs.String("mode", "warning", "Log mode")
-	_ = fs.String("secret", "secret_flag", "Secret variable")
+	_ = fs.String("host-name", "default", "")
 	flag.CommandLine = fs
-	flag.CommandLine.Parse(nil) // flag not given and has default value
+	flag.CommandLine.Parse(nil) // flag given
 
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
 
-	_, err := tmp.WriteString(`
-host = "localhost"
-port = 1010
-mode = "info"
-`)
+	_, err := tmp.WriteString(`host_name = "toml.example.com"`)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	os.Setenv("mode", "debug")
-	os.Setenv("secret", "secret_env")
+	os.Setenv("HOST_NAME", expected)
 
 	if err := Load(tmp.Name(), &cfg); err != nil {
 		t.Fatalf("unexpected error %v", err)
 	}
 
-	if cfg.Host != "localhost" {
-		t.Errorf("got: %v, expected: %v", cfg.Host, "localhost")
-	}
-
-	if cfg.Port != 1010 {
-		t.Errorf("got: %v, expected: %v", cfg.Port, 1010)
-	}
-
-	// environment dominant over toml
-	if cfg.Mode != "debug" {
-		t.Errorf("got: %v, expected: %v", cfg.Mode, "debug")
-	}
-
-	// environment dominant over toml
-	if cfg.Mode != "debug" {
-		t.Errorf("got: %v, expected: %v", cfg.Mode, "debug")
-	}
-
-	// environment dominant over toml
-	if cfg.Secret != "secret_env" {
-		t.Errorf("got: %v, expected: %v", cfg.Secret, "secret_env")
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
 	}
 }
 
-func TestLoad_UseFlagDefaultValueIfKeyNotFoundInConfig(t *testing.T) {
+func TestLoad_EnvTaggedAndSet(t *testing.T) {
+	os.Clearenv()
 	var cfg struct {
-		LogLevel string `toml:"logLevel"`
-		Port     int    `toml:"-" env:"-" flag:"port"`
+		Hostname string `env:"HOST_NAME"`
 	}
+	expected := "example.com"
+
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
-	_, err := tmp.WriteString(`
-LogLevel = "debug"
-`)
-	if err != nil {
-		t.Fatalf("write config file failed: %v", err)
-	}
 
-	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
-	_ = fs.Int("port", 9090, "Port to listen to")
-	flag.CommandLine = fs
-	flag.CommandLine.Parse(nil) // flag not given and has default value
+	os.Setenv("HOST_NAME", expected)
 
 	if err := Load(tmp.Name(), &cfg); err != nil {
-		t.Fatalf("failed to load config from file: %v", err)
+		t.Fatalf("unexpected error %v", err)
 	}
 
-	if cfg.LogLevel != "debug" {
-		t.Errorf("got: %v, expected: %v", cfg.LogLevel, "debug")
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
+	}
+}
+
+func TestLoad_EnvTaggedAndNotSet(t *testing.T) {
+	os.Clearenv()
+	var cfg struct {
+		Hostname string `env:"HOST_NAME"`
+	}
+	expected := ""
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
 	}
 
-	if cfg.Port != 9090 {
-		t.Errorf("got: %v, expected: %v", cfg.Port, 9090)
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
+	}
+}
+
+func TestLoad_TomlTaggedAndSet(t *testing.T) {
+	var cfg struct {
+		Hostname string `toml:"host_name"`
+	}
+	expected := "example.com"
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(fmt.Sprintf(`host_name = "%s"`, expected))
+	if err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
+	}
+}
+
+func TestLoad_TomlTaggedAndNotSet(t *testing.T) {
+	var cfg struct {
+		Hostname string `toml:"host_name"`
+	}
+	expected := ""
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
+	}
+}
+
+func TestLoad_TomlSet_EnvSet(t *testing.T) {
+	os.Clearenv()
+	var cfg struct {
+		Hostname string `toml:"host_name" env:"HOST_NAME"`
+	}
+	expected := "secret.example.com"
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`host_name = "example.com"`)
+	if err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	os.Setenv("HOST_NAME", expected)
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.Hostname != expected {
+		t.Errorf("got: %v, expected: %v", cfg.Hostname, expected)
 	}
 }
 
@@ -282,47 +428,20 @@ LogLevel = "debug"
 	}
 }
 
-func TestLoad_EnvGiven(t *testing.T) {
-	var cfg struct {
-		Key    string `toml:"-" flag:"-" env:"key"`
-		Secret string `toml:"-" flag:"-" env:"secret"`
-	}
-	os.Setenv("key", "some_key")
-	os.Setenv("secret", "some_secret")
-
-	tmp, _ := ioutil.TempFile("", "")
-	defer os.Remove(tmp.Name())
-
-	_, err := tmp.WriteString(`host = "localhost"`)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-
-	if err := Load(tmp.Name(), &cfg); err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if cfg.Key != "some_key" {
-		t.Errorf("got: %v, expected: %v", cfg.Key, "some_key")
-	}
-
-	if cfg.Secret != "some_secret" {
-		t.Errorf("got: %v, expected: %v", cfg.Secret, "some_secret")
-	}
-}
-
 func TestLoad_EnvGivenWithNested(t *testing.T) {
+	os.Clearenv()
 	var cfg struct {
 		Db struct {
-			User     string `env:"db_user"`
-			Password string `env:"db_password"`
+			User     string `env:"DB_USER"`
+			Password string `env:"DB_PASSWORD"`
 		}
 	}
-	os.Setenv("db_user", "secret_user")
-	os.Setenv("db_password", "secret_password")
-
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
+
+	// env
+	os.Setenv("DB_USER", "secret_user")
+	os.Setenv("DB_PASSWORD", "secret_password")
 
 	if err := Load(tmp.Name(), &cfg); err != nil {
 		t.Fatalf("unexpected error %v", err)
@@ -338,17 +457,20 @@ func TestLoad_EnvGivenWithNested(t *testing.T) {
 }
 
 func TestLoad_EnvGivenWithNestedPtr(t *testing.T) {
+	os.Clearenv()
 	var cfg struct {
 		Db *struct {
-			User     string `env:"db_user"`
-			Password string `env:"db_password"`
+			User     string `env:"DB_USER"`
+			Password string `env:"DB_PASSWORD"`
 		}
 	}
-	os.Setenv("db_user", "secret_user")
-	os.Setenv("db_password", "secret_password")
 
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
+
+	// env
+	os.Setenv("DB_USER", "secret_user")
+	os.Setenv("DB_PASSWORD", "secret_password")
 
 	if err := Load(tmp.Name(), &cfg); err != nil {
 		t.Fatalf("unexpected error %v", err)
@@ -363,58 +485,8 @@ func TestLoad_EnvGivenWithNestedPtr(t *testing.T) {
 	}
 }
 
-func TestLoad_ParseOtherTagsIfEnvSetAndNotGiven(t *testing.T) {
-	var cfg struct {
-		LogLevel string `env:"logLevel" flag:"logLevel"`
-		Port     int    `toml:"port" env:"port"`
-		Host     string `toml:"host" env:"host" flag:"host"`
-	}
-
-	tmp, _ := ioutil.TempFile("", "")
-	defer os.Remove(tmp.Name())
-
-	_, err := tmp.WriteString(`
-port = 7777
-flag = "localhost"
-`)
-	if err != nil {
-		t.Fatalf("write config file failed: %v", err)
-	}
-
-	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
-	_ = fs.String("logLevel", "debug", "Log level")
-	_ = fs.String("host", "localhost", "Host address")
-
-	flag.CommandLine = fs
-	flag.CommandLine.Parse([]string{"-logLevel", "debug"})       // flag given
-	flag.CommandLine.Parse([]string{"-host", "dev.example.com"}) // flag given
-
-	// os.Setenv("port", "9090") // env not set
-	// os.Setenv("logLevel", "warning") // env not set
-	// os.Setenv("host", "secret.example.com") // env not set
-
-	if err := Load(tmp.Name(), &cfg); err != nil {
-		t.Fatalf("unexpected error %v", err)
-	}
-
-	if cfg.Port != 7777 {
-		t.Errorf("got: %v, expected: %v", cfg.Port, 7777)
-	}
-
-	if cfg.LogLevel != "debug" {
-		t.Errorf("got: %v, expected: %v", cfg.LogLevel, "debug")
-	}
-
-	if cfg.LogLevel != "debug" {
-		t.Errorf("got: %v, expected: %v", cfg.LogLevel, "debug")
-	}
-
-	if cfg.Host != "dev.example.com" {
-		t.Errorf("got: %v, expected: %v", cfg.Host, "dev.example.com")
-	}
-}
-
 func TestLoad_CheckTagPriorities(t *testing.T) {
+	os.Clearenv()
 	var cfg struct {
 		Key1 string `toml:"key1" flag:"key1"`
 		Key2 string `toml:"key2" env:"key2"`
@@ -508,6 +580,7 @@ func TestLoad_ErrorIfFlagTypeMismatch(t *testing.T) {
 }
 
 func TestLoad_ErrorIfEnvTypeMismatch(t *testing.T) {
+	os.Clearenv()
 	var cfg struct {
 		KeyFloat float64 `env:"key_float"`
 	}
@@ -524,6 +597,7 @@ func TestLoad_ErrorIfEnvTypeMismatch(t *testing.T) {
 }
 
 func TestLoad_CheckNumericTypes(t *testing.T) {
+	os.Clearenv()
 	var cfg struct {
 		Float32 float32 `flag:"float32"`
 		Int8    int8    `toml:"int8"`
@@ -537,6 +611,7 @@ func TestLoad_CheckNumericTypes(t *testing.T) {
 	tmp, _ := ioutil.TempFile("", "")
 	defer os.Remove(tmp.Name())
 
+	// toml
 	_, err := tmp.WriteString(`
 int8 = -2
 uint32 = 1
