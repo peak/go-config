@@ -428,6 +428,70 @@ LogLevel = "debug"
 	}
 }
 
+func TestLoad_TomlNested_FlagSetAndNotGiven(t *testing.T) {
+	var cfg struct {
+		DB struct {
+			Account     string `toml:"account" flag:"db-account"`
+			Username    string `toml:"username" flag:"db-user"`
+			Credentials struct {
+				Secret   string `toml:"secret" flag:"db-secret"`
+				Password string `toml:"password" flag:"db-password"`
+			} `toml:"credentials"`
+			Options *struct {
+				Port int `toml:"port" flag:"db-port"`
+			}
+		} `toml:"database"`
+	}
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`
+[database]
+account = "test_account"
+username = "test_user"
+[database.credentials]
+secret = "wowowow"
+password = "12345"
+[database.options]
+port = 3306
+`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+	_ = fs.String("db-account", "default", "")
+	_ = fs.String("db-user", "default", "")
+	_ = fs.String("db-secret", "default", "")
+	_ = fs.String("db-password", "default", "")
+	_ = fs.Int("db-port", 0, "")
+	flag.CommandLine = fs
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if cfg.DB.Account != "test_account" {
+		t.Errorf("got: %v, expected: %v", cfg.DB.Account, "test_account")
+	}
+
+	if cfg.DB.Username != "test_user" {
+		t.Errorf("got: %v, expected: %v", cfg.DB.Username, "test_user")
+	}
+
+	if cfg.DB.Credentials.Secret != "wowowow" {
+		t.Errorf("got: %v, expected: %v", cfg.DB.Credentials.Secret, "wowowow")
+	}
+
+	if cfg.DB.Credentials.Password != "12345" {
+		t.Errorf("got: %v, expected: %v", cfg.DB.Credentials.Password, "12345")
+	}
+
+	if cfg.DB.Options.Port != 3306 {
+		t.Errorf("got: %v, expected: %v", cfg.DB.Options.Port, 3306)
+	}
+}
+
 func TestLoad_EnvGivenWithNested(t *testing.T) {
 	os.Clearenv()
 	var cfg struct {
