@@ -31,7 +31,7 @@ func Load(filepath string, dst interface{}) error {
 		return err
 	}
 
-	return bindFlags(dst, metadata)
+	return bindFlags(dst, metadata, "")
 }
 
 // bindEnvVariables will bind CLI flags to their respective elements in dst, defined by the struct-tag "env".
@@ -65,7 +65,7 @@ func bindEnvVariables(dst interface{}) error {
 }
 
 // bindFlags will bind CLI flags to their respective elements in dst, defined by the struct-tag "flag".
-func bindFlags(dst interface{}, metadata toml.MetaData) error {
+func bindFlags(dst interface{}, metadata toml.MetaData, fieldPath string) error {
 	fields := structs.Fields(dst)
 	for _, field := range fields {
 		tag := field.Tag(flagTag)
@@ -75,7 +75,18 @@ func bindFlags(dst interface{}, metadata toml.MetaData) error {
 				continue
 			}
 
-			if err := bindFlags(dstElem.Addr().Interface(), metadata); err != nil {
+			var path string
+			if fieldPath != "" {
+				path = fmt.Sprintf("%s.", fieldPath)
+			}
+
+			if field.Tag(tomlTag) != "" {
+				path += field.Tag(tomlTag)
+			} else {
+				path += field.Name()
+			}
+
+			if err := bindFlags(dstElem.Addr().Interface(), metadata, path); err != nil {
 				return err
 			}
 
@@ -91,7 +102,15 @@ func bindFlags(dst interface{}, metadata toml.MetaData) error {
 		useFlagDefaultValue := false
 		if !isFlagSet(tag) {
 			_, envHasKey := os.LookupEnv(field.Tag(envTag))
-			if envHasKey || tomlHasKey(metadata, field.Tag(tomlTag)) {
+
+			var tomlKey string
+			if fieldPath == "" {
+				tomlKey = field.Tag(tomlTag)
+			} else {
+				tomlKey = fmt.Sprintf("%s.%s", fieldPath, field.Tag(tomlTag))
+			}
+
+			if envHasKey || tomlHasKey(metadata, tomlKey) {
 				continue
 			} else {
 				useFlagDefaultValue = true
@@ -190,10 +209,10 @@ func isFlagSet(tag string) bool {
 	return flagSet
 }
 
-// tomlHasKey will check if the tag presents in toml metadata
-func tomlHasKey(metadata toml.MetaData, tag string) bool {
+// tomlHasKey will check if the toml key presents in toml metadata
+func tomlHasKey(metadata toml.MetaData, tomlKey string) bool {
 	for _, key := range metadata.Keys() {
-		if strings.ToLower(key.String()) == strings.ToLower(tag) {
+		if strings.EqualFold(key.String(), tomlKey) {
 			return true
 		}
 	}
