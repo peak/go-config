@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestLoad_FlagSetAndGiven(t *testing.T) {
@@ -728,5 +729,28 @@ uint32 = 1
 
 	if cfg.Bool != true {
 		t.Errorf("got: %v, expected: %v", cfg.Bool, true)
+	}
+}
+
+func TestLoad_Duration(t *testing.T) {
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`flush-interval = "12h34m56s"`)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	var cfg struct {
+		FlushInterval Duration `toml:"flush-interval"`
+	}
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	const expected = 12*time.Hour + 34*time.Minute + 56*time.Second
+	if cfg.FlushInterval.Duration != expected {
+		t.Errorf("got: %v, expected: %v", cfg.FlushInterval.Duration, expected)
 	}
 }
