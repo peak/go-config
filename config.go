@@ -7,7 +7,6 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-
 	"strings"
 
 	"github.com/BurntSushi/toml"
@@ -38,6 +37,10 @@ func Load(filepath string, dst interface{}) error {
 func bindEnvVariables(dst interface{}) error {
 	fields := structs.Fields(dst)
 	for _, field := range fields {
+		if !field.IsExported() {
+			continue
+		}
+
 		tag := field.Tag(envTag)
 		if tag == "" || tag == "-" {
 			ok, dstElem := isNestedStruct(dst, field)
@@ -68,6 +71,10 @@ func bindEnvVariables(dst interface{}) error {
 func bindFlags(dst interface{}, metadata toml.MetaData, fieldPath string) error {
 	fields := structs.Fields(dst)
 	for _, field := range fields {
+		if !field.IsExported() {
+			continue
+		}
+
 		tag := field.Tag(flagTag)
 		if tag == "" || tag == "-" {
 			ok, dstElem := isNestedStruct(dst, field)
