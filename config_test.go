@@ -7,6 +7,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestLoad_FlagSetAndGiven(t *testing.T) {
@@ -752,5 +754,131 @@ func TestLoad_Duration(t *testing.T) {
 	const expected = 12*time.Hour + 34*time.Minute + 56*time.Second
 	if cfg.FlushInterval.Duration != expected {
 		t.Errorf("got: %v, expected: %v", cfg.FlushInterval.Duration, expected)
+	}
+}
+
+func TestLoad_IgnoreUnexportedFields_TOML(t *testing.T) {
+	os.Clearenv()
+
+	type config struct {
+		ExportedField   string `toml:"exported-field"`
+		unexportedField string `toml:"unexported-field"`
+	}
+
+	var cfg config
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`
+exported-field = "expected"
+unexported-field = "not expected"
+`)
+	if err != nil {
+		t.Fatalf("write config file failed: %v", err)
+	}
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+
+	flag.CommandLine = fs
+	flag.CommandLine.Parse(nil)
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	want := config{
+		ExportedField:   "expected",
+		unexportedField: "",
+	}
+
+	if diff := cmp.Diff(want, cfg, cmp.AllowUnexported(config{})); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%v", diff)
+	}
+}
+
+func TestLoad_IgnoreUnexportedFields_Env(t *testing.T) {
+	os.Clearenv()
+
+	type config struct {
+		ExportedField   string `env:"EXPORTED_FIELD"`
+		unexportedField string `env:"UNEXPORTED_FIELD"`
+	}
+
+	var cfg config
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(`
+exported-field = "expected toml"
+unexported-field = "not expected toml"
+`)
+	if err != nil {
+		t.Fatalf("write config file failed: %v", err)
+	}
+
+	os.Setenv("EXPORTED_FIELD", "expected")
+	os.Setenv("UNEXPORTED_FIELD", "not expected")
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+
+	flag.CommandLine = fs
+	flag.CommandLine.Parse(nil)
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	want := config{
+		ExportedField:   "expected",
+		unexportedField: "",
+	}
+
+	if diff := cmp.Diff(want, cfg, cmp.AllowUnexported(config{})); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%v", diff)
+	}
+}
+
+func TestLoad_IgnoreUnexportedFields_Flag(t *testing.T) {
+	os.Clearenv()
+
+	type config struct {
+		ExportedField   string `flag:"exported-field"`
+		unexportedField string `flag:"unexported-field"`
+	}
+
+	var cfg config
+
+	tmp, _ := ioutil.TempFile("", "")
+	defer os.Remove(tmp.Name())
+
+	_, err := tmp.WriteString(``)
+	if err != nil {
+		t.Fatalf("write config file failed: %v", err)
+	}
+
+	fs := flag.NewFlagSet("tmp", flag.ExitOnError)
+
+	_ = fs.String("exported-field", "", "")
+	_ = fs.String("unexported-field", "", "")
+
+	flag.CommandLine = fs
+	flag.CommandLine.Parse([]string{
+		"-exported-field", "expected",
+		"-unexported-field", "not-expected",
+	})
+
+	if err := Load(tmp.Name(), &cfg); err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	want := config{
+		ExportedField:   "expected",
+		unexportedField: "",
+	}
+
+	if diff := cmp.Diff(want, cfg, cmp.AllowUnexported(config{})); diff != "" {
+		t.Errorf("mismatch (-want +got):\n%v", diff)
 	}
 }
