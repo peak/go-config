@@ -41,6 +41,10 @@ func Load(filepath string, dst interface{}) error {
 func bindEnvVariables(dst interface{}) error {
 	fields := structs.Fields(dst)
 	for _, field := range fields {
+		if !field.IsExported() {
+			continue
+		}
+
 		tag := field.Tag(envTag)
 		if tag == "" || tag == "-" {
 			ok, dstElem := isNestedStruct(dst, field)
@@ -71,6 +75,10 @@ func bindEnvVariables(dst interface{}) error {
 func bindFlags(dst interface{}, tree *toml.Tree, fieldPath string) error {
 	fields := structs.Fields(dst)
 	for _, field := range fields {
+		if !field.IsExported() {
+			continue
+		}
+
 		tag := field.Tag(flagTag)
 		if tag == "" || tag == "-" {
 			ok, dstElem := isNestedStruct(dst, field)
