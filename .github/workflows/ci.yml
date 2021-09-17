@@ -56,7 +56,7 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
-    - run: if [ "$(gofmt -mod=vendor)" -gt 0 ]; then echo "GO code is not formatted"; exit 1; fi
+    - run: if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then echo "Go code is not formatted"; exit 1; fi
     - run: go vet
     - run: go get honnef.co/go/tools/cmd/staticcheck
     - run: staticcheck
