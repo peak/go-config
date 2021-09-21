@@ -744,7 +744,7 @@ func TestLoad_Duration(t *testing.T) {
 	}
 
 	var cfg struct {
-		FlushInterval Duration `toml:"flush-interval"`
+		FlushInterval time.Duration `toml:"flush-interval"`
 	}
 
 	if err := Load(tmp.Name(), &cfg); err != nil {
@@ -752,8 +752,8 @@ func TestLoad_Duration(t *testing.T) {
 	}
 
 	const expected = 12*time.Hour + 34*time.Minute + 56*time.Second
-	if cfg.FlushInterval.Duration != expected {
-		t.Errorf("got: %v, expected: %v", cfg.FlushInterval.Duration, expected)
+	if cfg.FlushInterval != expected {
+		t.Errorf("got: %v, expected: %v", cfg.FlushInterval, expected)
 	}
 }
 

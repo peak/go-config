@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/BurntSushi/toml"
 	"github.com/fatih/structs"
+	"github.com/pelletier/go-toml"
 )
 
 const (
@@ -21,8 +21,12 @@ const (
 
 // Load loads filepath into dst. It also handles "flag" binding.
 func Load(filepath string, dst interface{}) error {
-	metadata, err := toml.DecodeFile(filepath, dst)
+	tree, err := toml.LoadFile(filepath)
 	if err != nil {
+		return err
+	}
+
+	if err := tree.Unmarshal(dst); err != nil {
 		return err
 	}
 
@@ -30,7 +34,7 @@ func Load(filepath string, dst interface{}) error {
 		return err
 	}
 
-	return bindFlags(dst, metadata, "")
+	return bindFlags(dst, tree, "")
 }
 
 // bindEnvVariables will bind CLI flags to their respective elements in dst, defined by the struct-tag "env".
@@ -68,7 +72,7 @@ func bindEnvVariables(dst interface{}) error {
 }
 
 // bindFlags will bind CLI flags to their respective elements in dst, defined by the struct-tag "flag".
-func bindFlags(dst interface{}, metadata toml.MetaData, fieldPath string) error {
+func bindFlags(dst interface{}, tree *toml.Tree, fieldPath string) error {
 	fields := structs.Fields(dst)
 	for _, field := range fields {
 		if !field.IsExported() {
@@ -93,7 +97,7 @@ func bindFlags(dst interface{}, metadata toml.MetaData, fieldPath string) error 
 				path += field.Name()
 			}
 
-			if err := bindFlags(dstElem.Addr().Interface(), metadata, path); err != nil {
+			if err := bindFlags(dstElem.Addr().Interface(), tree, path); err != nil {
 				return err
 			}
 
@@ -117,7 +121,7 @@ func bindFlags(dst interface{}, metadata toml.MetaData, fieldPath string) error 
 				tomlKey = fmt.Sprintf("%s.%s", fieldPath, field.Tag(tomlTag))
 			}
 
-			if envHasKey || tomlHasKey(metadata, tomlKey) {
+			if envHasKey || tree.Has(strings.ToLower(tomlKey)) {
 				continue
 			} else {
 				useFlagDefaultValue = true
@@ -214,14 +218,4 @@ func isFlagSet(tag string) bool {
 		}
 	})
 	return flagSet
-}
-
-// tomlHasKey will check if the toml key presents in toml metadata
-func tomlHasKey(metadata toml.MetaData, tomlKey string) bool {
-	for _, key := range metadata.Keys() {
-		if strings.EqualFold(key.String(), tomlKey) {
-			return true
-		}
-	}
-	return false
 }
